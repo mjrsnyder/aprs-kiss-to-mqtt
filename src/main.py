@@ -19,7 +19,7 @@ from time import sleep
 
 # MQTT settings
 MQTT_BROKER = config('MQTT_BROKER', default='127.0.0.1')
-MQTT_PORT = config('MQTT_PORT', default=1884, cast=int)
+MQTT_PORT = config('MQTT_PORT', default=1883, cast=int)
 MQTT_TOPIC = config('MQTT_TOPIC', default='aprs/packets')
 
 # KISS TNC settings
