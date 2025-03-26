@@ -7,7 +7,7 @@
 # - paho warning
 # - get rid of the queue thing or at least make it threaded
 ###########################################################
-
+import sys
 import kiss
 import ax25
 import datetime
@@ -126,6 +126,7 @@ def main():
         print('Exiting loop')
 
     mqtt_client.loop_stop()
+    sys.exit(0)
 
 if __name__ == '__main__':
     main()
