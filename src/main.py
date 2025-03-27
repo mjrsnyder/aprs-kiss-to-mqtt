@@ -13,6 +13,7 @@ import ax25
 import datetime
 import queue
 import json
+import prometheus_client
 from decouple import config
 from paho.mqtt.client import Client
 from time import sleep
@@ -26,11 +27,19 @@ MQTT_TOPIC = config('MQTT_TOPIC', default='aprs/packets')
 KISS_TNC_HOST = config('KISS_TNC_HOST', default='127.0.0.1')
 KISS_TNC_PORT = config('KISS_TNC_PORT', default='8001', cast=int) 
 
+# Prometheus Settings
+METRICS_PORT = config('METRICS_PORT', default=7373, cast=int)
+
 _frame_queue = queue.Queue()
+
+# Setup Prometheus metrics
+packet_count = prometheus_client.Counter('packets', 'Number of frames received from the TNC', ['unpacked', 'repeated'])
+mqtt_connection_count = prometheus_client.Counter('mqtt_connection_count', 'Number of times a connection has been established to the mqtt broker')
 
 def on_connect(client, userdata, flags, rc):
     """ MQTT connection callback """
     print('Connected to MQTT broker (rc={})'.format(rc))
+    mqtt_connection_count.inc()
     client.subscribe(MQTT_TOPIC)
 
 def on_publish(client, userdata, mid):
@@ -42,6 +51,7 @@ def receive_callback(kiss_port, data):
         frame = ax25.Frame.unpack(data)
         _frame_queue.put((frame, datetime.datetime.now()))
     except:
+        packet_count.labels(False).inc()
         print('Failed to unpack packet')
     
 def rebuild_callsign(callsign, ssid):
@@ -51,6 +61,10 @@ def rebuild_callsign(callsign, ssid):
     return full_callsign
 
 def main():
+
+    # Start the prometheus client
+    s, t = prometheus_client.start_http_server(METRICS_PORT)
+
     # Create an MQTT client instance
     mqtt_client = Client()
     mqtt_client.on_connect = on_connect
@@ -104,7 +118,9 @@ def main():
                     raw_data = ''
                     print('Error parsing packet comment data')
 
+                is_repeated = False
                 if frame.via is not None:
+                    is_repeated = True
                     for repeater in frame.via:
                         via_hop = {
                             'call' : repeater.call,
@@ -119,6 +135,7 @@ def main():
 
                 msg['data'] = header + ':' + raw_data
 
+                packet_count.labels(True, is_repeated).inc()
                 mqtt_client.publish(MQTT_TOPIC, json.dumps(msg))
 
                 print(msg)
@@ -126,6 +143,7 @@ def main():
         print('Exiting loop')
 
     mqtt_client.loop_stop()
+    s.shutdown()
     sys.exit(0)
 
 if __name__ == '__main__':
