@@ -51,7 +51,7 @@ def receive_callback(kiss_port, data):
         frame = ax25.Frame.unpack(data)
         _frame_queue.put((frame, datetime.datetime.now()))
     except:
-        packet_count.labels(False).inc()
+        packet_count.labels(False, None).inc()
         print('Failed to unpack packet')
     
 def rebuild_callsign(callsign, ssid):
