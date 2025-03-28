@@ -143,8 +143,12 @@ def main():
     except KeyboardInterrupt:
         print('Exiting loop')
 
+    # Shut down allthethings!
     mqtt_client.loop_stop()
     s.shutdown()
+    _frame_queue.shutdown()
+    kiss_conn.disconnect_from_server()
+
     sys.exit(0)
 
 if __name__ == '__main__':
