@@ -33,7 +33,8 @@ METRICS_PORT = config('METRICS_PORT', default=7373, cast=int)
 _frame_queue = queue.Queue()
 
 # Setup Prometheus metrics
-packet_count = prometheus_client.Counter('packets', 'Number of frames received from the TNC', ['unpacked', 'repeated'])
+packet_count = prometheus_client.Counter('packets', 'Number of frames received from the TNC', ['repeated'])
+packet_error_count = prometheus_client.Counter('packet_errors', 'Number of frames that could not be unpacked')
 mqtt_connection_count = prometheus_client.Counter('mqtt_connection_count', 'Number of times a connection has been established to the mqtt broker')
 
 def on_connect(client, userdata, flags, rc):
@@ -51,7 +52,7 @@ def receive_callback(kiss_port, data):
         frame = ax25.Frame.unpack(data)
         _frame_queue.put((frame, datetime.datetime.now()))
     except:
-        packet_count.labels(False, None).inc()
+        packet_error_count.inc()
         print('Failed to unpack packet')
     
 def rebuild_callsign(callsign, ssid):
@@ -135,7 +136,7 @@ def main():
 
                 msg['data'] = header + ':' + raw_data
 
-                packet_count.labels(True, is_repeated).inc()
+                packet_count.labels(is_repeated).inc()
                 mqtt_client.publish(MQTT_TOPIC, json.dumps(msg))
 
                 print(msg)
